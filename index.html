@@ -1,3 +1,11 @@
+Для того чтобы можно было выделять участки труб и менять их цвет в GeoJSON, можно использовать события и стили в Leaflet. Вот пример, как это сделать:
+
+1. Добавим обработчики событий на каждый участок трубы.
+2. Используем функцию стилей, чтобы изменять цвет выбранного участка.
+
+Вот обновленный HTML-код, который позволяет это сделать:
+
+```html
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,21 +30,64 @@
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
+        // Функция для установки стиля по умолчанию
+        function defaultStyle(feature) {
+            return {
+                color: 'blue',
+                weight: 2
+            };
+        }
+
+        // Функция для изменения стиля выделенного участка
+        function highlightFeature(e) {
+            var layer = e.target;
+            layer.setStyle({
+                color: 'red',
+                weight: 3
+            });
+        }
+
+        // Функция для сброса стиля выделенного участка
+        function resetHighlight(e) {
+            geojson.resetStyle(e.target);
+        }
+
+        // Функция для обработки кликов по участкам
+        function onEachFeature(feature, layer) {
+            layer.on({
+                click: highlightFeature
+            });
+        }
+
         // Загрузка первого GeoJSON файла
         fetch('map.geojson')
             .then(response => response.json())
             .then(data => {
-                L.geoJSON(data).addTo(map);
+                geojson = L.geoJSON(data, {
+                    style: defaultStyle,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
             })
             .catch(error => console.log('Ошибка загрузки первого файла GeoJSON:', error));
 
         // Загрузка второго GeoJSON файла
-        fetch('path/to/your/secondGeoJsonFile.geojson')
+        fetch('secondGeoJsonFile.geojson')
             .then(response => response.json())
             .then(data => {
-                L.geoJSON(data).addTo(map);
+                geojson = L.geoJSON(data, {
+                    style: defaultStyle,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
             })
             .catch(error => console.log('Ошибка загрузки второго файла GeoJSON:', error));
     </script>
 </body>
 </html>
+```
+
+В этом примере:
+- `defaultStyle` задает начальный стиль для всех труб (синий цвет).
+- `highlightFeature` изменяет стиль выделенного участка на красный.
+- `onEachFeature` добавляет обработчик события `click` для каждого участка.
+
+Теперь, при клике на участок трубы, его цвет будет меняться на красный. Если тебе нужно сбрасывать цвет обратно при повторном клике или добавлять другие интерактивные функции, их можно легко добавить в эти функции.
