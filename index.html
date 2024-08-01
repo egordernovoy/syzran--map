@@ -169,7 +169,7 @@
         map.on('mouseleave', stopDrawing);
 
         // Загрузка первого GeoJSON файла (трубы)
-        fetch('map.geojson')
+        fetch('firstGeoJsonFile.geojson')
             .then(response => response.json())
             .then(data => {
                 L.geoJSON(data, {
