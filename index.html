@@ -141,7 +141,9 @@
         function saveLines() {
             var geojson = [];
             for (var line of drawnLines) {
-                geojson.push(line.toGeoJSON());
+                var feature = line.toGeoJSON();
+                feature.properties = { color: line.options.color };
+                geojson.push(feature);
             }
             var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
             var downloadAnchorNode = document.createElement('a');
@@ -167,7 +169,7 @@
         map.on('mouseleave', stopDrawing);
 
         // Загрузка первого GeoJSON файла (трубы)
-        fetch('map.geojson')
+        fetch('firstGeoJsonFile.geojson')
             .then(response => response.json())
             .then(data => {
                 L.geoJSON(data, {
@@ -198,7 +200,7 @@
             .then(data => {
                 L.geoJSON(data, {
                     style: function (feature) {
-                        return { color: feature.properties.color || 'black', weight: 3 };
+                        return { color: feature.properties.color, weight: 3 };
                     },
                     onEachFeature: function (feature, layer) {
                         drawnLines.push(layer);
