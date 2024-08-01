@@ -166,7 +166,7 @@
         map.on('mouseup', stopDrawing);
         map.on('mouseleave', stopDrawing);
 
-        // Загрузка первого GeoJSON файла
+        // Загрузка первого GeoJSON файла (трубы)
         fetch('map.geojson')
             .then(response => response.json())
             .then(data => {
@@ -179,7 +179,7 @@
             })
             .catch(error => console.log('Ошибка загрузки первого файла GeoJSON:', error));
 
-        // Загрузка второго GeoJSON файла
+        // Загрузка второго GeoJSON файла (трубы)
         fetch('secondGeoJsonFile.geojson')
             .then(response => response.json())
             .then(data => {
@@ -191,6 +191,21 @@
                 }).addTo(map);
             })
             .catch(error => console.log('Ошибка загрузки второго файла GeoJSON:', error));
+
+        // Загрузка сохраненных линий из lines.geojson
+        fetch('lines.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    style: function (feature) {
+                        return { color: feature.properties.color || 'black', weight: 3 };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        drawnLines.push(layer);
+                    }
+                }).addTo(map);
+            })
+            .catch(error => console.log('Ошибка загрузки файла lines.geojson:', error));
     </script>
 </body>
 </html>
