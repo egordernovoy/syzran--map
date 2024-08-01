@@ -10,10 +10,41 @@
             height: 600px;
             width: 100%;
         }
+        #menu {
+            display: none;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            z-index: 1000;
+        }
+        #menu button {
+            display: block;
+            margin-bottom: 5px;
+        }
+        #toggle-menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="menu">
+        <button onclick="setMode('red')">Красный</button>
+        <button onclick="setMode('yellow')">Желтый</button>
+        <button onclick="setMode('green')">Зеленый</button>
+        <button onclick="setMode('eraser')">Ластик</button>
+        <button onclick="saveLines()">Сохранить</button>
+    </div>
+    <button id="toggle-menu">x</button>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         var map = L.map('map').setView([53.1556, 48.4747], 13); // Координаты Сызрани
@@ -22,43 +53,54 @@
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Функция для установки стиля по умолчанию
-        function defaultStyle(feature) {
-            return {
-                color: 'blue',
-                weight: 2
-            };
+        var drawing = false;
+        var erasing = false;
+        var drawnPoints = [];
+        var drawnLines = [];
+        var tempLine = null;
+        var currentMode = 'red';
+
+        function setMode(mode) {
+            currentMode = mode;
         }
 
-        var drawing = false;
-        var drawnPoints = [];
-
         function startDrawing(e) {
-            drawing = true;
-            drawnPoints = [e.latlng];
+            if (currentMode === 'eraser') {
+                erasing = true;
+                map.dragging.disable(); // Отключаем перетаскивание карты
+            } else {
+                drawing = true;
+                drawnPoints = [e.latlng];
+                map.dragging.disable(); // Отключаем перетаскивание карты
+            }
         }
 
         function continueDrawing(e) {
             if (drawing) {
                 drawnPoints.push(e.latlng);
                 updateTemporaryLine();
+            } else if (erasing) {
+                eraseLine(e.latlng);
             }
         }
 
         function stopDrawing(e) {
-            drawing = false;
-            drawnPoints.push(e.latlng);
-            highlightSelectedSection();
-            clearTemporaryLine();
+            if (drawing) {
+                drawing = false;
+                map.dragging.enable(); // Включаем перетаскивание карты
+                highlightSelectedSection();
+                clearTemporaryLine();
+            } else if (erasing) {
+                erasing = false;
+                map.dragging.enable(); // Включаем перетаскивание карты
+            }
         }
-
-        var tempLine = null;
 
         function updateTemporaryLine() {
             if (tempLine) {
                 map.removeLayer(tempLine);
             }
-            tempLine = L.polyline(drawnPoints, { color: 'red', weight: 3 }).addTo(map);
+            tempLine = L.polyline(drawnPoints, { color: currentMode, weight: 3 }).addTo(map);
         }
 
         function clearTemporaryLine() {
@@ -70,20 +112,69 @@
 
         function highlightSelectedSection() {
             if (drawnPoints.length > 1) {
-                L.polyline(drawnPoints, { color: 'red', weight: 3 }).addTo(map);
+                var line = L.polyline(drawnPoints, { color: currentMode, weight: 3 }).addTo(map);
+                drawnLines.push(line);
             }
         }
+
+        function eraseLine(latlng) {
+            var tolerance = 10; // допустимая погрешность в пикселях
+            var point = map.latLngToLayerPoint(latlng);
+
+            drawnLines = drawnLines.filter(function (line) {
+                var shouldKeep = true;
+                var latLngs = line.getLatLngs();
+
+                for (var i = 0; i < latLngs.length; i++) {
+                    var linePoint = map.latLngToLayerPoint(latLngs[i]);
+                    if (point.distanceTo(linePoint) < tolerance) {
+                        map.removeLayer(line);
+                        shouldKeep = false;
+                        break;
+                    }
+                }
+
+                return shouldKeep;
+            });
+        }
+
+        function saveLines() {
+            var geojson = [];
+            for (var line of drawnLines) {
+                geojson.push(line.toGeoJSON());
+            }
+            var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
+            var downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "lines.geojson");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        document.getElementById('toggle-menu').onclick = function() {
+            var menu = document.getElementById('menu');
+            if (menu.style.display === 'none') {
+                menu.style.display = 'block';
+            } else {
+                menu.style.display = 'none';
+            }
+        };
 
         map.on('mousedown', startDrawing);
         map.on('mousemove', continueDrawing);
         map.on('mouseup', stopDrawing);
+        map.on('mouseleave', stopDrawing);
 
         // Загрузка первого GeoJSON файла
-        fetch('map.geojson')
+        fetch('firstGeoJsonFile.geojson')
             .then(response => response.json())
             .then(data => {
                 L.geoJSON(data, {
-                    style: defaultStyle
+                    style: {
+                        color: 'blue',
+                        weight: 2
+                    }
                 }).addTo(map);
             })
             .catch(error => console.log('Ошибка загрузки первого файла GeoJSON:', error));
@@ -93,7 +184,10 @@
             .then(response => response.json())
             .then(data => {
                 L.geoJSON(data, {
-                    style: defaultStyle
+                    style: {
+                        color: 'blue',
+                        weight: 2
+                    }
                 }).addTo(map);
             })
             .catch(error => console.log('Ошибка загрузки второго файла GeoJSON:', error));
